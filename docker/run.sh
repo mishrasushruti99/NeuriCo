@@ -468,30 +468,38 @@ cmd_update_tools() {
     echo -e "${BLUE}Updating AI CLI tools to latest versions...${NC}"
     echo ""
 
-    local gpu_flags=$(get_gpu_flags)
+    local container_name="neurico-update-tools-$$"
 
-    eval "docker run --rm \
-        $gpu_flags \
+    # Run as root so we can write to /usr/local/bin and /usr/lib/node_modules
+    eval "docker run --name \"$container_name\" \
+        --user root \
+        --entrypoint bash \
         \"$IMAGE_NAME\" \
-        bash -c '
+        -c '
             echo \"Updating Claude Code...\"
-            curl -fsSL https://claude.ai/install.sh | bash 2>&1 | tail -3 || true
+            curl -fsSL https://claude.ai/install.sh | bash 2>&1 | tail -5
+            # Copy native binary to system path
+            cp ~/.local/bin/claude /usr/local/bin/claude 2>/dev/null || true
             echo \"\"
             echo \"Updating Codex...\"
-            npm install -g @openai/codex@latest 2>&1 | tail -1 || true
+            npm install -g @openai/codex@latest 2>&1 | tail -1
             echo \"\"
             echo \"Updating Gemini CLI...\"
-            npm install -g @google/gemini-cli@latest 2>&1 | tail -1 || true
+            npm install -g @google/gemini-cli@latest 2>&1 | tail -1
             echo \"\"
             echo \"Versions installed:\"
-            echo \"  Claude Code: \$(claude --version 2>/dev/null || /root/.local/bin/claude --version 2>/dev/null || echo unknown)\"
+            echo \"  Claude Code: \$(claude --version 2>/dev/null || echo unknown)\"
             echo \"  Codex:       \$(codex --version 2>/dev/null || echo unknown)\"
             echo \"  Gemini:      \$(gemini --version 2>/dev/null || echo unknown)\"
         '"
 
+    # Commit the updated container as the new image
     echo ""
-    echo -e "${YELLOW}Note:${NC} Updates are applied to the running container only."
-    echo "To persist updates permanently, rebuild: ./neurico build"
+    echo -e "${BLUE}Saving updated image...${NC}"
+    docker commit "$container_name" "$IMAGE_NAME" > /dev/null
+    docker rm "$container_name" > /dev/null
+
+    echo -e "${GREEN}Done!${NC} CLI tools updated and saved to $IMAGE_NAME"
 }
 
 # -----------------------------------------------------------------------------
