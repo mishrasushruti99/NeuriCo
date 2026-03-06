@@ -46,6 +46,7 @@ curl -fsSL https://raw.githubusercontent.com/ChicagoHAI/neurico/main/install.sh 
 **2. Run** — pick or submit an idea on [IdeaHub](https://hypogenic.ai/ideahub) and go:
 
 ```bash
+cd NeuriCo
 ./neurico fetch <ideahub_url> --submit --run --provider claude --write-paper --full-permissions
 ```
 
