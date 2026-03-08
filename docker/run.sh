@@ -93,10 +93,14 @@ show_status() {
     fi
 
     # Claude credentials
+    # On macOS, credentials live in the Keychain — always check there.
+    # On Linux, check ~/.claude/.credentials.json directly.
     local _claude_ok=false
-    if [ -d "$HOME/.claude" ] && [ "$(ls -A "$HOME/.claude" 2>/dev/null)" ]; then
-        _claude_ok=true
-    elif [[ "$(uname)" == "Darwin" ]] && security find-generic-password -s "Claude Code-credentials" -w &>/dev/null; then
+    if [[ "$(uname)" == "Darwin" ]]; then
+        if security find-generic-password -s "Claude Code-credentials" -w &>/dev/null; then
+            _claude_ok=true
+        fi
+    elif [ -s "$HOME/.claude/.credentials.json" ]; then
         _claude_ok=true
     fi
     if [ "$_claude_ok" = true ]; then
@@ -137,10 +141,7 @@ check_docker() {
 # Get user ID flags to match host user (fixes permission issues with mounted volumes)
 # -----------------------------------------------------------------------------
 get_user_flags() {
-    # Force HOME=/tmp so credential mounts at /tmp/.claude, /tmp/.codex, /tmp/.gemini
-    # are always in the right place, regardless of whether the host UID matches
-    # the container's researcher user (UID 1000).
-    echo "--user $(id -u):$(id -g) -e HOME=/tmp"
+    echo "--user $(id -u):$(id -g)"
 }
 
 # -----------------------------------------------------------------------------
@@ -177,7 +178,7 @@ get_cli_credential_mounts() {
     local found_any=false
 
     # Explicitly tell Claude Code where to find/store credentials
-    mounts="$mounts -e CLAUDE_CONFIG_DIR=/tmp/.claude"
+    mounts="$mounts -e CLAUDE_CONFIG_DIR=/home/neurico/.claude"
 
     echo -e "${BLUE}Checking CLI credentials...${NC}" >&2
 
@@ -198,7 +199,7 @@ get_cli_credential_mounts() {
     # Always mount if directory exists (even if empty) so credentials written
     # inside the container persist to the host for subsequent runs.
     if [ -d "$HOME/.claude" ]; then
-        mounts="$mounts -v \"$HOME/.claude:/tmp/.claude\""
+        mounts="$mounts -v \"$HOME/.claude:/home/neurico/.claude\""
         if [ "$(ls -A "$HOME/.claude" 2>/dev/null)" ]; then
             echo -e "  ${GREEN}[OK]${NC} Mounting Claude credentials" >&2
         else
@@ -209,7 +210,7 @@ get_cli_credential_mounts() {
 
     # Codex credentials (~/.codex/)
     if [ -d "$HOME/.codex" ]; then
-        mounts="$mounts -v \"$HOME/.codex:/tmp/.codex\""
+        mounts="$mounts -v \"$HOME/.codex:/home/neurico/.codex\""
         if [ "$(ls -A "$HOME/.codex" 2>/dev/null)" ]; then
             echo -e "  ${GREEN}[OK]${NC} Mounting Codex credentials" >&2
         else
@@ -220,7 +221,7 @@ get_cli_credential_mounts() {
 
     # Gemini CLI credentials (~/.gemini/)
     if [ -d "$HOME/.gemini" ]; then
-        mounts="$mounts -v \"$HOME/.gemini:/tmp/.gemini\""
+        mounts="$mounts -v \"$HOME/.gemini:/home/neurico/.gemini\""
         if [ "$(ls -A "$HOME/.gemini" 2>/dev/null)" ]; then
             echo -e "  ${GREEN}[OK]${NC} Mounting Gemini credentials" >&2
         else
@@ -621,7 +622,7 @@ cmd_login() {
     local user_flags=$(get_user_flags)
 
     # Use --user to match host UID so writes to mounted credential dirs succeed.
-    # The entrypoint detects the non-writable /home/researcher and sets HOME=/tmp,
+    # The entrypoint detects the non-writable /home/neurico and sets HOME=/tmp,
     # which makes CLI tools write to /tmp/.claude etc. (the mounted volumes).
     # CLAUDE_CONFIG_DIR explicitly tells Claude Code where to store credentials.
     eval "docker run -it --rm \
