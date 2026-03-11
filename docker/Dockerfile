@@ -143,11 +143,15 @@ RUN ln -sf /usr/lib/node_modules/@openai/codex/bin/codex.js /usr/bin/codex \
 # Copy uv (agents may need to create their own environments)
 COPY --from=ghcr.io/astral-sh/uv:0.5.11 /uv /usr/local/bin/uv
 
+# Create non-root user (before COPY --chown)
+RUN useradd -u 1000 -m -s /bin/bash neurico
+
 # Copy Python installation from builder
 COPY --from=builder /python /python
 
 # Copy the entire /app from builder (includes code AND all venvs)
-COPY --from=builder /app /app
+# --chown sets ownership during copy, avoiding a slow separate chmod/chown pass
+COPY --from=builder --chown=neurico:neurico /app /app
 
 # Set up paths
 ENV PATH="/app/.venv/bin:/python/bin:/usr/local/bin:${PATH}"
@@ -164,15 +168,16 @@ RUN mkdir -p /workspaces \
     /app/ideas/submitted /app/ideas/in_progress /app/ideas/completed \
     /app/logs /app/runs
 
+# Switch to non-root user
+USER neurico
 WORKDIR /app
 
-# Configure git and CLI dirs
+# Configure git and CLI dirs for neurico user
 RUN git config --global user.email "noreply@neurico.dev" \
     && git config --global user.name "NeuriCo" \
     && git config --global init.defaultBranch main \
     && mkdir -p ~/.claude ~/.codex ~/.gemini ~/.cache/uv \
     && echo 'PS1="neurico:\w\$ "' >> ~/.bashrc
-
 
 # Set environment variable for workspace location
 ENV NEURICO_WORKSPACE=/workspaces
