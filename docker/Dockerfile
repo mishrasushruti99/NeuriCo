@@ -138,7 +138,7 @@ COPY --from=builder /usr/local/bin/claude /usr/local/bin/claude
 
 # Symlink Codex and Gemini CLI tools (COPY dereferences symlinks, breaking Node.js relative imports)
 RUN ln -sf /usr/lib/node_modules/@openai/codex/bin/codex.js /usr/bin/codex \
-    && ln -sf /usr/lib/node_modules/@google/gemini-cli/dist/index.js /usr/bin/gemini
+    && ln -sf /usr/lib/node_modules/@google/gemini-cli/bundle/gemini.js /usr/bin/gemini
 
 # Copy uv (agents may need to create their own environments)
 COPY --from=ghcr.io/astral-sh/uv:0.5.11 /uv /usr/local/bin/uv
